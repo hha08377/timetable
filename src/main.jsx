@@ -16,7 +16,8 @@ createRoot(document.getElementById('root')).render(
 // 而且开发时开了缓存会让 HMR 改不动，所以只在正式站点注册。
 if (location.protocol === 'https:' && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
+    // BASE_URL 是部署路径（GitHub Pages 子目录时是 '/timetable/'），不能写死 '/sw.js'
+    navigator.serviceWorker.register(import.meta.env.BASE_URL + 'sw.js').catch(() => {
       // 注册失败不影响使用，静默忽略
     })
   })

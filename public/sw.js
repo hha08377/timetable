@@ -1,7 +1,8 @@
 // Service Worker：让页面在断网时也能打开（只缓存"壳"，数据本来就在 localStorage）
 // 策略：网络优先 → 失败回落到缓存。改版本号（CACHE）可以强制换新。
 const CACHE = 'kxb-shell-v1'
-const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png']
+// 路径都是相对的：这样部署在子目录（GitHub Pages 的 /timetable/）也能对上
+const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -29,6 +30,6 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {})
         return res
       })
-      .catch(() => caches.match(request).then((hit) => hit || caches.match('/index.html'))),
+      .catch(() => caches.match(request).then((hit) => hit || caches.match('./index.html'))),
   )
 })
