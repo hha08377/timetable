@@ -10,3 +10,14 @@ createRoot(document.getElementById('root')).render(
     <App />
   </StrictMode>,
 )
+
+// —— 离线缓存（只在上线后的 https 环境生效）——
+// 为什么要卡 https：Service Worker 在 http（包括局域网 IP）下浏览器直接拒绝注册，
+// 而且开发时开了缓存会让 HMR 改不动，所以只在正式站点注册。
+if (location.protocol === 'https:' && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // 注册失败不影响使用，静默忽略
+    })
+  })
+}
