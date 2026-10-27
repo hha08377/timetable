@@ -1,10 +1,16 @@
 # 依赖和产物，别提交
 node_modules/
 dist/
+
 # 本地跑的一次性脚本 / 截图（verify*.mjs 之类，需要时再手动加回来）
 temp/
+
 # 开发服务器的日志
 dev.log
+dev.err.log
+preview.log
+preview.err.log
+*.log
 
 # 系统杂项
 .DS_Store
