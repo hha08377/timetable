@@ -206,9 +206,35 @@ body::after {
   padding: 0;
 }
 
+/* ---------- 周末：双休，不上课 ---------- */
+
+.rest {
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  padding: 34px 22px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.rest__title {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 17px;
+  letter-spacing: 0.04em;
+}
+
+.rest__hint {
+  margin: 0;
+  max-width: 26em;
+  margin-inline: auto;
+  font-size: 12px;
+  color: var(--ink-soft);
+  line-height: 1.8;
+}
+
 .slot {
   display: grid;
-  grid-template-columns: 50px 1fr;
+  grid-template-columns: 56px 1fr;
   gap: 12px;
   padding: 9px 0;
   border-bottom: 1px solid var(--line-weak);
@@ -242,6 +268,15 @@ body::after {
   font-family: var(--font-display);
   font-size: 15px;
   line-height: 1;
+}
+
+/* 小节号：一个大节 = 两个小节（学校按小节排课） */
+.slot__sec {
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  opacity: 0.75;
+  white-space: nowrap;
 }
 
 .slot__hhmm {

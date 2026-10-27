@@ -96,10 +96,13 @@ function DayStrip({ days, selected, onSelect }) {
 function PeriodRow({ period, course, state, onEditCourse, onEditTime }) {
   // state: 'past' | 'now' | 'future' —— 只用来做一点视觉暗示
   const incomplete = course && placeIncomplete(course.place)
+  // 一个大节 = 两个小节：1 → 1-2 节，2 → 3-4 节 …（学校按小节排课）
+  const sections = `${period.id * 2 - 1}-${period.id * 2} 节`
   return (
     <li className={'slot' + (state === 'now' ? ' slot--now' : '')}>
       <button className="slot__time" onClick={onEditTime} title="点击修改这一节的上课时间">
         <span className="slot__id">{period.id}</span>
+        <span className="slot__sec">{sections}</span>
         <span className="slot__hhmm">{period.start}</span>
         <span className="slot__hhmm slot__hhmm--dim">{period.end}</span>
       </button>
@@ -262,6 +265,7 @@ export default function App() {
   const now = new Date()
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
   const isToday = dateKey(now) === day.key
+  const isWeekend = day.weekday >= 6 // 6=周六、7=周日：双休，课表上没有课
 
   const slotState = (period) => {
     if (!isToday) return 'future'
@@ -318,24 +322,31 @@ export default function App() {
             {day.isToday && <em className="dayhead__now">今天</em>}
           </span>
           <span className="dayhead__count">
-            {filledOfDay}/{periods.length} 节有课
+            {isWeekend ? '双休' : `${filledOfDay}/${periods.length} 节有课`}
           </span>
         </div>
 
-        <ol className="slots">
-          {periods.map((p) => (
-            <PeriodRow
-              key={p.id}
-              period={p}
-              course={courses[courseKey(day.weekday, p.id)]}
-              state={slotState(p)}
-              onEditCourse={() =>
-                setEditing({ weekday: day.weekday, period: p, existing: courses[courseKey(day.weekday, p.id)] })
-              }
-              onEditTime={() => setEditingTime(p)}
-            />
-          ))}
-        </ol>
+        {isWeekend ? (
+          <div className="rest">
+            <p className="rest__title">周末双休</p>
+            <p className="rest__hint">课表上没有课，留给作业和睡觉——作业倒计时做完之后，这里会显示最近的截止时间。</p>
+          </div>
+        ) : (
+          <ol className="slots">
+            {periods.map((p) => (
+              <PeriodRow
+                key={p.id}
+                period={p}
+                course={courses[courseKey(day.weekday, p.id)]}
+                state={slotState(p)}
+                onEditCourse={() =>
+                  setEditing({ weekday: day.weekday, period: p, existing: courses[courseKey(day.weekday, p.id)] })
+                }
+                onEditTime={() => setEditingTime(p)}
+              />
+            ))}
+          </ol>
+        )}
       </section>
 
       {pendingRooms > 0 && (
