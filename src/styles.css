@@ -388,6 +388,174 @@ body::after {
   color: #8d6a6f;
 }
 
+/* ---------- 作业倒计时 ---------- */
+
+.hw {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hw__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hw__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.hw__empty {
+  margin: 0;
+  padding: 18px 16px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--ink-soft);
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.hw__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hwitem {
+  display: grid;
+  grid-template-columns: 26px 1fr auto 20px;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--line-weak);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* 打勾：小圆圈按钮 */
+.hwitem__check {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1.5px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--teal);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.hwitem__check:hover {
+  border-color: var(--teal);
+  background: rgba(127, 164, 168, 0.1);
+}
+
+.hwitem__main {
+  min-width: 0;
+}
+
+.hwitem__title {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.hwitem__meta {
+  margin: 2px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  align-items: baseline;
+  font-size: 10.5px;
+  color: var(--ink-soft);
+}
+
+/* 「11/5 22:00 截止」不许从中间断成「截 / 止」 */
+.hwitem__meta > span {
+  white-space: nowrap;
+}
+
+.hwitem__course {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(127, 164, 168, 0.14);
+  color: #4f767a;
+  white-space: nowrap;
+}
+
+.hwitem__left {
+  font-size: 11px;
+  white-space: nowrap;
+  color: var(--ink-soft);
+}
+
+/* 剩不到 24 小时：红；已逾期：更重的红 */
+.hwitem--urgent {
+  border-color: rgba(192, 141, 146, 0.55);
+  background: rgba(192, 141, 146, 0.07);
+}
+
+.hwitem__left--urgent {
+  color: #b2737a;
+  font-weight: 600;
+}
+
+.hwitem--late {
+  border-color: rgba(180, 108, 92, 0.5);
+  background: rgba(180, 108, 92, 0.08);
+}
+
+.hwitem__left--late {
+  color: #a85f4c;
+  font-weight: 600;
+}
+
+/* 做完的：整行淡下去 + 划掉 */
+.hwitem--done {
+  opacity: 0.5;
+  background: transparent;
+  border-color: var(--line-weak);
+}
+
+.hwitem--done .hwitem__title {
+  text-decoration: line-through;
+}
+
+.hwitem--done .hwitem__left {
+  color: var(--teal);
+}
+
+.hwitem__del {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.5;
+}
+
+.hwitem__del:hover {
+  opacity: 1;
+  color: var(--rose);
+}
+
 /* ---------- 还没做的两块 ---------- */
 
 .next {
@@ -548,6 +716,19 @@ body::after {
   box-shadow: 0 0 0 3px rgba(127, 164, 168, 0.16);
 }
 
+/* 下拉框跟输入框长得一样 */
+.field select {
+  font: inherit;
+  font-size: 15px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  outline: none;
+  appearance: none;
+}
+
 /* 两列并排（改作息时起止时间放一行） */
 .field--row {
   flex-direction: row;
@@ -597,6 +778,16 @@ body::after {
 
 .btn--ghost {
   color: var(--ink-soft);
+}
+
+/* 小号按钮：作业标题右边那个「+ 加一项」 */
+.btn--sm {
+  flex: 0 0 auto;
+  width: auto;
+  padding: 7px 14px;
+  font-size: 12px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
 .btn--danger {

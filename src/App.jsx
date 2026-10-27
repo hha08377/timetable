@@ -234,6 +234,150 @@ function TimeEditor({ period, onClose, onSave }) {
   )
 }
 
+// ---------- 作业倒计时 ----------
+
+const HW_KEY = 'kxb.homework.v1'
+
+// 截止时间怎么显示：11/3 23:59
+const formatDue = (iso) => {
+  const d = new Date(iso)
+  return `${d.getMonth() + 1}/${d.getDate()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+}
+const toInputValue = (d) =>
+  `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+
+// 剩多久：不到 24 小时 → urgent（标红），过期 → late
+const hwLeft = (due, nowMs) => {
+  const ms = new Date(due).getTime() - nowMs
+  const hours = ms / 3_600_000
+  if (ms < 0) return { text: '已逾期', level: 'late' }
+  if (hours < 1) return { text: `剩 ${Math.max(1, Math.round(hours * 60))} 分钟`, level: 'urgent' }
+  if (hours < 24) return { text: `剩 ${Math.floor(hours)} 小时`, level: 'urgent' }
+  const days = Math.floor(hours / 24)
+  return { text: `剩 ${days} 天 ${Math.floor(hours - days * 24)} 小时`, level: 'ok' }
+}
+
+function HomeworkBoard({ items, courseNames, onToggle, onRemove, onAdd }) {
+  return (
+    <section className="hw" aria-label="作业倒计时">
+      <header className="hw__head">
+        <h2 className="hw__title">作业倒计时</h2>
+        <button type="button" className="btn btn--primary btn--sm" onClick={onAdd}>
+          + 加一项
+        </button>
+      </header>
+
+      {items.length === 0 ? (
+        <p className="hw__empty">
+          还没有作业。点「+ 加一项」写上名字和截止时间，剩不到 24 小时会自己变红。
+        </p>
+      ) : (
+        <ul className="hw__list">
+          {items.map((h) => {
+            const left = hwLeft(h.due, Date.now())
+            return (
+              <li
+                key={h.id}
+                className={`hwitem hwitem--${left.level}${h.done ? ' hwitem--done' : ''}`}
+              >
+                <button
+                  type="button"
+                  className="hwitem__check"
+                  onClick={() => onToggle(h.id)}
+                  aria-label={h.done ? '标记成没做完' : '标记成做完了'}
+                >
+                  {h.done ? '✓' : ''}
+                </button>
+
+                <div className="hwitem__main">
+                  <p className="hwitem__title">{h.title}</p>
+                  <p className="hwitem__meta">
+                    {h.course && <span className="hwitem__course">{h.course}</span>}
+                    <span>{formatDue(h.due)} 截止</span>
+                  </p>
+                </div>
+
+                <span className={`hwitem__left hwitem__left--${left.level}`}>
+                  {h.done ? '已完成' : left.text}
+                </span>
+
+                <button type="button" className="hwitem__del" onClick={() => onRemove(h.id)} aria-label="删除">
+                  ×
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+function HomeworkEditor({ courseNames, onClose, onSave }) {
+  const [title, setTitle] = useState('')
+  const [course, setCourse] = useState('')
+  // 默认给个「明天晚上 22:00」，省得每次都点日历
+  const [due, setDue] = useState(() => {
+    const d = addDays(new Date(), 1)
+    d.setHours(22, 0, 0, 0)
+    return toInputValue(d)
+  })
+
+  const submit = (e) => {
+    e.preventDefault()
+    if (!title.trim() || !due) return
+    onSave({ id: String(Date.now()), title: title.trim(), course: course.trim(), due, done: false })
+  }
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <form className="sheet" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+        <header className="sheet__head">
+          <span className="sheet__when">新作业</span>
+          <span className="sheet__time">截止时间</span>
+        </header>
+
+        <label className="field">
+          <span>作业名字</span>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="例如 高数第 5 章习题 / 英语作文草稿"
+            maxLength={40}
+            autoFocus
+          />
+        </label>
+
+        <label className="field">
+          <span>哪门课（可空）</span>
+          <select value={course} onChange={(e) => setCourse(e.target.value)}>
+            <option value="">不关联课程</option>
+            {courseNames.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span>截止到</span>
+          <input type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} required />
+        </label>
+
+        <div className="sheet__actions">
+          <button type="button" className="btn btn--ghost" onClick={onClose}>
+            取消
+          </button>
+          <button type="submit" className="btn btn--primary" disabled={!title.trim()}>
+            加上
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 // ---------- 主组件 ----------
 
 export default function App() {
@@ -243,7 +387,9 @@ export default function App() {
   const [selected, setSelected] = useState(() => dateKey(new Date()))
   const [editing, setEditing] = useState(null) // { weekday, period, existing }
   const [editingTime, setEditingTime] = useState(null) // period
-  const [, setTick] = useState(0) // 每分钟 +1，用来重算「现在第几节」
+  const [homework, setHomework] = useState(() => readJSON(HW_KEY, [])) // [{ id, title, course, due, done }]
+  const [addingHw, setAddingHw] = useState(false)
+  const [, setTick] = useState(0) // 每分钟 +1，用来重算「现在第几节」和「作业还剩多久」
 
   const days = useMemo(() => buildDays(new Date()), [])
 
@@ -254,6 +400,10 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(PERIODS_KEY, JSON.stringify(periods))
   }, [periods])
+
+  useEffect(() => {
+    window.localStorage.setItem(HW_KEY, JSON.stringify(homework))
+  }, [homework])
 
   // 每 60 秒刷新一次时间，正在上的课会自动亮起来
   useEffect(() => {
@@ -295,6 +445,20 @@ export default function App() {
   const totalCourses = Object.keys(courses).length
   const pendingRooms = Object.values(courses).filter((c) => placeIncomplete(c.place)).length
 
+  // 作业列表：没做完的排前面，同一组里按截止时间从早到晚
+  const courseNames = useMemo(
+    () => [...new Set(Object.values(courses).map((c) => c.name))].sort((a, b) => a.localeCompare(b, 'zh')),
+    [courses]
+  )
+  const hwSorted = useMemo(
+    () =>
+      [...homework].sort(
+        (a, b) => Number(a.done) - Number(b.done) || new Date(a.due).getTime() - new Date(b.due).getTime()
+      ),
+    [homework]
+  )
+  const hwOpen = homework.filter((h) => !h.done).length
+
   const resetToSeed = () => {
     if (!window.confirm('把课表恢复成从截图里导入的那 11 门课？当前的修改会丢掉。')) return
     setCourses(SEED_COURSES)
@@ -304,12 +468,12 @@ export default function App() {
   return (
     <main className="page">
       <header className="hero">
-        <p className="hero__eyebrow">timetable · v0.3</p>
+        <p className="hero__eyebrow">timetable · v0.4</p>
         <h1 className="hero__title">
           课表<span className="hero__dot">·</span>作业提醒
         </h1>
         <p className="hero__lede">
-          你的 11 门课已经导进来了：点格子改课，点左边时间改作息，都存在这台设备上。
+          11 门课已导入：点格子改课，点左边时间改作息；下面能记作业，剩不到一天会自己变红。
         </p>
       </header>
 
@@ -329,7 +493,7 @@ export default function App() {
         {isWeekend ? (
           <div className="rest">
             <p className="rest__title">周末双休</p>
-            <p className="rest__hint">课表上没有课，留给作业和睡觉——作业倒计时做完之后，这里会显示最近的截止时间。</p>
+            <p className="rest__hint">课表上没有课，留给作业和睡觉。作业的截止时间在下面的「作业倒计时」里盯着。</p>
           </div>
         ) : (
           <ol className="slots">
@@ -355,13 +519,19 @@ export default function App() {
         </p>
       )}
 
-      <section className="next" aria-label="还没做的两块">
+      <HomeworkBoard
+        items={hwSorted}
+        courseNames={courseNames}
+        onToggle={(id) =>
+          setHomework((prev) => prev.map((h) => (h.id === id ? { ...h, done: !h.done } : h)))
+        }
+        onRemove={(id) => setHomework((prev) => prev.filter((h) => h.id !== id))}
+        onAdd={() => setAddingHw(true)}
+      />
+
+      <section className="next" aria-label="还没做的那块">
         <p className="next__title">还没做</p>
         <ul className="next__list">
-          <li>
-            <span>作业倒计时</span>
-            <em>剩 24h 标红 · 打勾移除</em>
-          </li>
           <li>
             <span>到点提醒</span>
             <em>课前 12h / 2h（走系统日历）</em>
@@ -370,7 +540,9 @@ export default function App() {
       </section>
 
       <footer className="foot">
-        <p className="foot__line">课表已可用 · 作业与提醒待接入</p>
+        <p className="foot__line">
+          课表 + 作业倒计时可用 · 提醒待接入（{hwOpen} 项作业没做完）
+        </p>
         <p className="foot__hint">
           共 {totalCourses} 门课，数据存在浏览器本地（localStorage）
           <button className="foot__link foot__link--inline" onClick={resetToSeed}>
@@ -378,6 +550,17 @@ export default function App() {
           </button>
         </p>
       </footer>
+
+      {addingHw && (
+        <HomeworkEditor
+          courseNames={courseNames}
+          onClose={() => setAddingHw(false)}
+          onSave={(item) => {
+            setHomework((prev) => [...prev, item])
+            setAddingHw(false)
+          }}
+        />
+      )}
 
       {editing && (
         <Editor
