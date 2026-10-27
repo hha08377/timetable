@@ -1,22 +1,15 @@
 // ============================================================
-// App.jsx —— 课表版块（v0.2）
-// 现在有的：5 时段 × 7 天、当天 ±5 天切换、点格子加课、存 localStorage
+// App.jsx —— 课表版块（v0.3：真实课表已载入）
+// 现在有的：5 大节 × 7 天、当天 ±5 天切换、点格子改课、点时间改作息、
+//          数据存 localStorage、截断的地点上标「待补」
 // 还没有的：作业倒计时、到点提醒（见 docs/立项卡.md）
 // ============================================================
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { DEFAULT_PERIODS, SEED_COURSES, WEEKDAYS, placeIncomplete } from './data/timetable.js'
 
-// 学校固定的 5 个时段（立项卡里的原话，别改）
-const PERIODS = [
-  { id: 1, start: '08:30', end: '10:10' },
-  { id: 2, start: '10:30', end: '12:10' },
-  { id: 3, start: '14:20', end: '16:00' },
-  { id: 4, start: '16:20', end: '18:00' },
-  { id: 5, start: '19:00', end: '20:35' },
-]
-
-const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 const STORAGE_KEY = 'kxb.courses.v1'
+const PERIODS_KEY = 'kxb.periods.v1'
 const SPAN = 5 // 当天前后各 5 天
 
 // ---------- 一点日期小工具（Date 是新手最容易栽的地方，见 README） ----------
@@ -52,16 +45,17 @@ function buildDays(today) {
 
 // ---------- 存取 ----------
 
-function loadCourses() {
-  if (typeof window === 'undefined') return {}
+const readJSON = (key, fallback) => {
+  if (typeof window === 'undefined') return fallback
   try {
-    return JSON.parse(window.localStorage.getItem(STORAGE_KEY) || '{}')
+    const raw = window.localStorage.getItem(key)
+    return raw ? JSON.parse(raw) : fallback
   } catch {
-    return {}
+    return fallback
   }
 }
 
-// 存的格式：{ "2-1": { name: "高等数学", place: "教三 305" } }  键 = 星期几-第几节
+// 存的格式：{ "2-1": { name, place, color } }  键 = 星期几-大节号
 const courseKey = (weekday, periodId) => `${weekday}-${periodId}`
 
 // ---------- 组件 ----------
@@ -99,20 +93,27 @@ function DayStrip({ days, selected, onSelect }) {
   )
 }
 
-function PeriodRow({ period, course, state, onEdit }) {
+function PeriodRow({ period, course, state, onEditCourse, onEditTime }) {
   // state: 'past' | 'now' | 'future' —— 只用来做一点视觉暗示
+  const incomplete = course && placeIncomplete(course.place)
   return (
     <li className={'slot' + (state === 'now' ? ' slot--now' : '')}>
-      <div className="slot__time">
+      <button className="slot__time" onClick={onEditTime} title="点击修改这一节的上课时间">
         <span className="slot__id">{period.id}</span>
         <span className="slot__hhmm">{period.start}</span>
         <span className="slot__hhmm slot__hhmm--dim">{period.end}</span>
-      </div>
-      <button className={'slot__body' + (course ? ' slot__body--filled' : '')} onClick={onEdit}>
+      </button>
+      <button
+        className={'slot__body' + (course ? ` slot__body--filled ${course.color || 'c1'}` : '')}
+        onClick={onEditCourse}
+      >
         {course ? (
           <>
             <span className="slot__name">{course.name}</span>
-            <span className="slot__place">{course.place || '未填地点'}</span>
+            <span className="slot__place">
+              {course.place || '未填地点'}
+              {incomplete && <em className="slot__badge">待补</em>}
+            </span>
           </>
         ) : (
           <span className="slot__empty">＋ 添加</span>
@@ -157,7 +158,7 @@ function Editor({ target, course, onClose, onSave, onDelete }) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="例如 高等数学"
-            maxLength={20}
+            maxLength={24}
           />
         </label>
 
@@ -166,10 +167,14 @@ function Editor({ target, course, onClose, onSave, onDelete }) {
           <input
             value={place}
             onChange={(e) => setPlace(e.target.value)}
-            placeholder="例如 教三 305"
-            maxLength={20}
+            placeholder="例如 弘远楼B0412"
+            maxLength={24}
           />
         </label>
+
+        {placeIncomplete(course?.place) && (
+          <p className="sheet__tip">这间教室在原课表里被截断了，补上完整房号再保存。</p>
+        )}
 
         <div className="sheet__actions">
           <button type="button" className="btn btn--ghost" onClick={onClose}>
@@ -189,20 +194,63 @@ function Editor({ target, course, onClose, onSave, onDelete }) {
   )
 }
 
+function TimeEditor({ period, onClose, onSave }) {
+  const [start, setStart] = useState(period.start)
+  const [end, setEnd] = useState(period.end)
+  const submit = (e) => {
+    e.preventDefault()
+    onSave({ ...period, start, end })
+  }
+  return (
+    <div className="overlay" onClick={onClose}>
+      <form className="sheet" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+        <header className="sheet__head">
+          <span className="sheet__when">第 {period.id} 大节</span>
+          <span className="sheet__time">上课时间</span>
+        </header>
+        <div className="field field--row">
+          <label className="field field--half">
+            <span>开始</span>
+            <input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+          </label>
+          <label className="field field--half">
+            <span>结束</span>
+            <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+          </label>
+        </div>
+        <div className="sheet__actions">
+          <button type="button" className="btn btn--ghost" onClick={onClose}>
+            取消
+          </button>
+          <button type="submit" className="btn btn--primary">
+            保存
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 // ---------- 主组件 ----------
 
 export default function App() {
-  const [courses, setCourses] = useState(loadCourses)
+  // 第一次打开就用「导入的真实课表」当初始值；之后以本地存的为准
+  const [courses, setCourses] = useState(() => readJSON(STORAGE_KEY, SEED_COURSES))
+  const [periods, setPeriods] = useState(() => readJSON(PERIODS_KEY, DEFAULT_PERIODS))
   const [selected, setSelected] = useState(() => dateKey(new Date()))
-  const [editing, setEditing] = useState(null) // { weekday, period }
-  const [tick, setTick] = useState(0) // 每分钟 +1，用来重算「现在第几节」
+  const [editing, setEditing] = useState(null) // { weekday, period, existing }
+  const [editingTime, setEditingTime] = useState(null) // period
+  const [, setTick] = useState(0) // 每分钟 +1，用来重算「现在第几节」
 
   const days = useMemo(() => buildDays(new Date()), [])
 
-  // 存盘：courses 一变就写回 localStorage
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(courses))
   }, [courses])
+
+  useEffect(() => {
+    window.localStorage.setItem(PERIODS_KEY, JSON.stringify(periods))
+  }, [periods])
 
   // 每 60 秒刷新一次时间，正在上的课会自动亮起来
   useEffect(() => {
@@ -224,7 +272,8 @@ export default function App() {
 
   const save = (payload) => {
     const key = courseKey(editing.weekday, editing.period.id)
-    setCourses((prev) => ({ ...prev, [key]: payload }))
+    const color = editing.existing?.color || 'c1'
+    setCourses((prev) => ({ ...prev, [key]: { ...payload, color } }))
     setEditing(null)
   }
 
@@ -238,29 +287,25 @@ export default function App() {
     setEditing(null)
   }
 
-  const filledOfDay = PERIODS.filter((p) => courses[courseKey(day.weekday, p.id)]).length
-  const isEmpty = Object.keys(courses).length === 0
+  const filledOfDay = periods.filter((p) => courses[courseKey(day.weekday, p.id)]).length
+  const totalCourses = Object.keys(courses).length
+  const pendingRooms = Object.values(courses).filter((c) => placeIncomplete(c.place)).length
 
-  const fillSample = () => {
-    setCourses({
-      '1-1': { name: '高等数学', place: '教三 305' },
-      '1-2': { name: '英语听说', place: '语音室 2' },
-      '2-1': { name: '程序设计基础', place: '机房 A' },
-      '2-3': { name: '大学物理', place: '教二 108' },
-      '3-2': { name: '线性代数', place: '教三 210' },
-      '4-5': { name: '晚自习', place: '图书馆' },
-    })
+  const resetToSeed = () => {
+    if (!window.confirm('把课表恢复成从截图里导入的那 11 门课？当前的修改会丢掉。')) return
+    setCourses(SEED_COURSES)
+    setPeriods(DEFAULT_PERIODS)
   }
 
   return (
     <main className="page">
       <header className="hero">
-        <p className="hero__eyebrow">timetable · v0.2</p>
+        <p className="hero__eyebrow">timetable · v0.3</p>
         <h1 className="hero__title">
           课表<span className="hero__dot">·</span>作业提醒
         </h1>
         <p className="hero__lede">
-          5 个时段，按周排；点空白格子加课，数据存在这台设备上。
+          你的 11 门课已经导进来了：点格子改课，点左边时间改作息，都存在这台设备上。
         </p>
       </header>
 
@@ -273,22 +318,31 @@ export default function App() {
             {day.isToday && <em className="dayhead__now">今天</em>}
           </span>
           <span className="dayhead__count">
-            {filledOfDay}/{PERIODS.length} 节有课
+            {filledOfDay}/{periods.length} 节有课
           </span>
         </div>
 
         <ol className="slots">
-          {PERIODS.map((p) => (
+          {periods.map((p) => (
             <PeriodRow
               key={p.id}
               period={p}
               course={courses[courseKey(day.weekday, p.id)]}
               state={slotState(p)}
-              onEdit={() => setEditing({ weekday: day.weekday, period: p, existing: courses[courseKey(day.weekday, p.id)] })}
+              onEditCourse={() =>
+                setEditing({ weekday: day.weekday, period: p, existing: courses[courseKey(day.weekday, p.id)] })
+              }
+              onEditTime={() => setEditingTime(p)}
             />
           ))}
         </ol>
       </section>
+
+      {pendingRooms > 0 && (
+        <p className="notice">
+          有 {pendingRooms} 处地点在截图里被截断了（显示「待补」），点一下格子补上完整房号。
+        </p>
+      )}
 
       <section className="next" aria-label="还没做的两块">
         <p className="next__title">还没做</p>
@@ -306,13 +360,12 @@ export default function App() {
 
       <footer className="foot">
         <p className="foot__line">课表已可用 · 作业与提醒待接入</p>
-        {isEmpty ? (
-          <button className="foot__link" onClick={fillSample}>
-            先填一份示例课表看看样子 →
+        <p className="foot__hint">
+          共 {totalCourses} 门课，数据存在浏览器本地（localStorage）
+          <button className="foot__link foot__link--inline" onClick={resetToSeed}>
+            恢复成导入的课表
           </button>
-        ) : (
-          <p className="foot__hint">改完刷新页面，数据还在（localStorage）</p>
-        )}
+        </p>
       </footer>
 
       {editing && (
@@ -324,7 +377,17 @@ export default function App() {
           onDelete={remove}
         />
       )}
+
+      {editingTime && (
+        <TimeEditor
+          period={editingTime}
+          onClose={() => setEditingTime(null)}
+          onSave={(next) => {
+            setPeriods((prev) => prev.map((p) => (p.id === next.id ? next : p)))
+            setEditingTime(null)
+          }}
+        />
+      )}
     </main>
   )
 }
-
