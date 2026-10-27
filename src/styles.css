@@ -556,50 +556,36 @@ body::after {
   color: var(--rose);
 }
 
-/* ---------- 还没做的两块 ---------- */
+/* ---------- 到点提醒（导出日历） ---------- */
 
-.next {
-  margin-top: auto;
-  padding-top: 20px;
-  border-top: 1px solid var(--line);
-}
-
-.next__title {
-  margin: 0 0 10px;
-  font-size: 10px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--teal);
-}
-
-.next__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.remind {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 18px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.45);
 }
 
-.next__list li {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px dashed var(--line-weak);
+.remind__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.remind__hint {
+  margin: 0;
   font-size: 12px;
-}
-
-.next__list li:last-child {
-  border-bottom: none;
-}
-
-.next__list em {
-  font-style: normal;
-  font-size: 11px;
+  line-height: 1.85;
   color: var(--ink-soft);
-  text-align: right;
+}
+
+.remind__hint b {
+  font-weight: 600;
+  color: var(--ink);
 }
 
 /* ---------- 底部 ---------- */

@@ -7,6 +7,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_PERIODS, SEED_COURSES, WEEKDAYS, placeIncomplete } from './data/timetable.js'
+import { buildICS, downloadICS } from './ics.js'
 
 const STORAGE_KEY = 'kxb.courses.v1'
 const PERIODS_KEY = 'kxb.periods.v1'
@@ -465,6 +466,12 @@ export default function App() {
     setPeriods(DEFAULT_PERIODS)
   }
 
+  // 导出 .ics：课程每周重复、每个事件课前 12h / 2h 各一个提醒
+  const exportCalendar = () => {
+    const ics = buildICS(courses, periods, homework)
+    downloadICS('课表-作业提醒.ics', ics)
+  }
+
   return (
     <main className="page">
       <header className="hero">
@@ -529,19 +536,20 @@ export default function App() {
         onAdd={() => setAddingHw(true)}
       />
 
-      <section className="next" aria-label="还没做的那块">
-        <p className="next__title">还没做</p>
-        <ul className="next__list">
-          <li>
-            <span>到点提醒</span>
-            <em>课前 12h / 2h（走系统日历）</em>
-          </li>
-        </ul>
+      <section className="remind" aria-label="到点提醒">
+        <h2 className="remind__title">到点提醒</h2>
+        <p className="remind__hint">
+          网页一关就不会响（浏览器不允许），所以提醒交给手机自带日历：导出这个文件导进去，
+          每门课<b>课前 12 小时</b>和<b>课前 2 小时</b>各响一次，作业截止也一样。
+        </p>
+        <button type="button" className="btn btn--primary btn--sm" onClick={exportCalendar}>
+          导出日历（.ics）
+        </button>
       </section>
 
       <footer className="foot">
         <p className="foot__line">
-          课表 + 作业倒计时可用 · 提醒待接入（{hwOpen} 项作业没做完）
+          课表 + 作业倒计时 + 日历导出可用 · {hwOpen} 项作业没做完
         </p>
         <p className="foot__hint">
           共 {totalCourses} 门课，数据存在浏览器本地（localStorage）
